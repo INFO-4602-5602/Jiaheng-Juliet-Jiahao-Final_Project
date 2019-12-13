@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title></title>
+<style>
+.axis line,
+.axis path {
+  fill: none;
+  stroke: #000;
+  stroke-width: 1.5px;
+  shape-rendering: crispEdges;
+}
+.axis text {
+  font: 11px sans-serif;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+  cursor: move;
+}
+.axisL line,
+.axisL path {
+  fill: none;
+  stroke: #1f77b4;
+  stroke-width: 1.5px;
+  shape-rendering: crispEdges;
+}
+.axisL text {
+  font: 11px sans-serif;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+  cursor: move;
+}
+.axisR line,
+.axisR path {
+  fill: none;
+  stroke: #ff7f0e;
+  stroke-width: 1.5px;
+  shape-rendering: crispEdges;
+}
+.axisR text {
+  font: 11px sans-serif;
+  text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, 0 -1px 0 #fff, -1px 0 0 #fff;
+  cursor: move;
+}
+.tooltip{
+    font-size:14px;
+    width:auto;
+    height:auto;
+    position:absolute;
+    padding: 10px;
+    background-color:#fff;
+    border-radius:5px;
+    box-shadow: 0px 0px 6px #ccc;;
+}
+.lineCircleR {
+    cursor: pointer;
+}
+</style>
+</head>
+<body>
+    <div id="lineChart" style="float: left;"></div>
+    <div id="pieChart"></div>
+</div>
+<div id="areaChart"></div>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="d3-tip.js"></script>
+<script>
+var height = 500, width = 500, margin = {top: 40, right: 50, bottom: 50, left: 50};
+
+var colors = d3.scale.category20();
+
+var tooltip = d3.select("body")
+.append("div")
+.attr("class", "tooltip")
+.style("visibility", "hidden")
+.text("a simple tooltip");
+
+// The line chart
+var svg = d3.select("#lineChart")
+.append("svg")
+.attr("height", height + margin.top + margin.bottom)
+.attr("width", width + margin.left + margin.right);
+
+// Horizontal scale
+var x = d3.scale.linear()
+.domain([1930,2020])
+.range([margin.left, margin.left + width]);
+
+// Left vertical scale
+var y1 = d3.scale.linear()
+.domain([0, 22500])
+.range([height + margin.top, margin.top]);
+
+// Right vertical scale
+var y2 = d3.scale.linear()
+.domain([0, 50])
+.range([height + margin.top, margin.top]);
+
+// Left line generator
+var line1 = d3.svg.line()
+.x(function(d) {
+    return x(+d["Year"]);
+})
+.y(function(d) {
+    return y1(+d["GDP-US($ billion nominal)"]);
+});
+
+// Right line generator
+var line2 = d3.svg.line()
+.x(function(d) {
+    return x(+d["Year"]);
+})
+.y(function(d) {
+    return y2(+d["Defense -fed(percent GDP)"]);
+});
+
+// The horizontal axis
+var xAxis = d3.svg.axis()
+.scale(x)
+.orient("bottom");
+
+svg.append("g")
+.attr("class","axis")
+.attr("transform","translate(0," + (height + margin.top) + ")")
+.call(xAxis);
+
+// The left vertical coordinate axis
+var lineYAxisL = d3.svg.axis()
+.scale(y1)
+.orient("left");
+
+svg.append("g")
+.attr("class","axisL")
+.attr("transform","translate(" + margin.left + ",0)")
+.call(lineYAxisL);
+
+// The right vertical coordinate axis
+var lineYAxisR = d3.svg.axis()
+.scale(y2)
+.orient("right");
+
+svg.append("g")
+.attr("class","axisR")
+.attr("transform","translate(" + (margin.left + width) + ",0)")
+.call(lineYAxisR);
+
+var xLabel = svg.append("text")
+.attr("y", height+margin.top+40)
+.attr("x", width/2+margin.left)
+.attr("font-size", 16)
+.attr("text-anchor", "middle")
+.text("Year");
+
+var y1Label = svg.append("text")
+.attr("y", margin.top-15)
+.attr("x", margin.left)
+.attr("font-size", 16)
+.attr("text-anchor", "start")
+.text("GDP-US");
+
+var y2Label = svg.append("text")
+.attr("y", margin.top-15)
+.attr("x", width+margin.left)
+.attr("font-size", 16)
+.attr("text-anchor", "end")
+.text("Defense -fed");
+
+var wars = [
+    ["World War II", 1941, 5.6],
+    ["Korean War", 1950, 8.09],
+    ["Vietnam War", 1965, 8.3],
+    ["Persian Gulf", 1990, 5.74],
+    ["Afghanistan war", 2001, 3.46],
+    ["Iraq War", 2003, 4.21]
+]
+
+// pie chart  //////////////////////////////////////////////////////////////////////////////////
+var svg3 = d3.select("#pieChart")
+.append("svg")
+.attr("height", 590)
+.attr("width", 400);
+
+var pie = d3.layout.pie();
+
+// Arc generator
+var arc = d3.svg.arc()
+.innerRadius(0)
+.outerRadius(120);
+
+var arcLabel = svg3.append("text")
+.attr("y", 100)
+.attr("x", 200)
+.attr("font-size", 18)
+.attr("text-anchor", "middle")
+.text("Defense -fed (percent GDP)");
+
+var arcInfo = svg3.append("text")
+.attr("y", 140)
+.attr("x", 200)
+.attr("font-size", 16)
+.attr("text-anchor", "middle")
+.text("Please click the orange circles");
+
+// loading military.csv data
+d3.csv("military.csv", function(error, data) {
+    //console.log(data);
+
+    // Draw the left fold
+    svg.append("path")
+        .attr("class", "line")
+        .attr('stroke', function(d,i){
+            return "#1f77b4"
+        })
+        .attr("fill", function(d,i){
+            return "none";
+        })
+        .attr("d", function() {
+            return line1(data);
+        })
+        .style("stroke-width", 2);
+
+    // Draw the left polyline dot
+    svg.selectAll(".lineCircleL")
+        .data(data).enter()
+        .append("circle")
+        .attr("class", "lineCircleL")
+        .attr("cx", function(d) { return x(+d["Year"]); })
+        .attr("cy", function(d) { return y1(+d["GDP-US($ billion nominal)"]); })
+        .attr("r", 2)
+        .style("fill", "#1f77b4")
+        .style("opacity", 0.8)
+
+        // Mouse over display data
+        .on("mousemove", function(d) {
+            tooltip.style("top",(d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");
+        })
+        .on("mouseover", function(d) {
+            d3.select(this).attr("r", 4).style("opacity", 1);
+            tooltip.text(d.Year+"GDP-US(billion nominal): $" + d["GDP-US($ billion nominal)"]);
+            tooltip.style("visibility", "visible");
+        })
+        .on("mouseout", function(d) {
+            d3.select(this).attr("r", 2).style("opacity", 0.8);
+            tooltip.style("visibility", "hidden");
+        })
+        // Click the dot to refresh the pie chart
+        .on("click", function(d) {
+            svg3.selectAll("g").remove();
+
+            var defense = +d["Defense -fed(percent GDP)"];
+            var piedata = pie([100-defense, defense]);
+            
+            var arcs = svg3.selectAll("g")
+            .data(piedata)
+            .enter()
+            .append("g")
+            .attr("transform","translate(200,295)");
+
+            arcs.append("path")
+            .attr("fill", function(d,i){
+                if (i == 0)  return "#ff7f0e";
+                else  return "#ffbb78";
+            })
+            .attr("d",function(d){
+                return arc(d);
+            });
+
+            arcs.append("text")
+            .attr("transform", function(d) {
+                var x = arc.centroid(d)[0] * 1.4;
+                var y = arc.centroid(d)[1] * 1.4;
+                return "translate(" + x + "," + y + ")";
+            })
+            .attr("text-anchor","middle")
+            .style("z")
+            .text(function(d, i) {
+                if (i == 1)  return d.value + "%";
+            });
+        });
+
+    // Draw the right fold
+    svg.append("path")
+        .attr("class", "line")
+        .attr('stroke', function(d,i){
+            return "#ff7f0e"
+        })
+        .attr("fill", function(d,i){
+            return "none";
+        })
+        .attr("d", function() {
+            return line2(data);
+        })
+        .style("stroke-width", 2);
+
+    // Draw the right polyline dot
+    svg.selectAll(".lineCircleR")
+        .data(data).enter()
+        .append("circle")
+        .attr("class", "lineCircleR")
+        .attr("cx", function(d) { return x(+d["Year"]); })
+        .attr("cy", function(d) { return y2(+d["Defense -fed(percent GDP)"]); })
+        .attr("r", function(d) {
+            if (d.Year == 1941 || d.Year == 1950 || d.Year == 1965 || d.Year == 1990 || d.Year == 2001 || d.Year == 2003) {
+                return 4;
+            }
+            else return 2;
+        })
+        .style("fill", "#ff7f0e")
+        .style("opacity", 0.8)
+
+        // Mouse over display data
+        .on("mouseover", function(d) {
+            d3.select(this).attr("r", 4).style("opacity", 1);
+            tooltip.text(d.Year+"Defense -fed: " + d["Defense -fed(percent GDP)"] + "%");
+            tooltip.style("visibility", "visible");        
+        })
+        .on("mousemove", function(d) {
+            tooltip.style("top",(d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");
+        })
+        .on("mouseout", function(d) {
+            d3.select(this)
+            .attr("r", function(d) {
+                if (d.Year == 1941 || d.Year == 1950 || d.Year == 1965 || d.Year == 1990 || d.Year == 2001 || d.Year == 2003) {
+                    return 4;
+                }
+                else return 2;
+            })
+            .style("opacity", 0.8);3
+            tooltip.style("visibility", "hidden");
+        })
+        // Click the dot to refresh the pie chart
+        .on("click", function(d) {
+            arcInfo.remove();
+            svg3.selectAll("g").remove();
+
+            var defense = +d["Defense -fed(percent GDP)"];
+            var piedata = pie([100-defense, defense]);
+            
+            var arcs = svg3.selectAll("g")
+            .data(piedata)
+            .enter()
+            .append("g")
+            .attr("transform","translate(200,295)");
+
+            arcs.append("path")
+            .attr("fill", function(d,i){
+                if (i == 0)  return "#ff7f0e";
+                else  return "#ffbb78";
+            })
+            .attr("d",function(d){
+                return arc(d);
+            });
+
+            arcs.append("text")
+            .attr("transform", function(d) {
+                var x = arc.centroid(d)[0] * 1.4;
+                var y = arc.centroid(d)[1] * 1.4;
+                return "translate(" + x + "," + y + ")";
+            })
+            .attr("text-anchor","middle")
+            .text(function(d, i) {
+                if (i == 1)  return d.value + "%";
+            });
+        });    
+
+    // Display war tag
+    for (var i = 0; i < wars.length; i++) {
+        svg.append("text")
+        .attr("x", function() {
+            return x(wars[i][1]);
+        })
+        .attr("y", function() {
+            return y2(wars[i][2]);
+        })
+        .attr("font-size", 13)
+        .attr("text-anchor", "middle")
+        .attr("transform", function() {
+            if (i == 5)  return "translate(0,-8)";
+            else return "translate(0,15)";
+        })
+        .text(function() {
+            return wars[i][0];
+        })
+    }
+})
+
+//  area chart  /////////////////////////////////////////////////////////////////////////////
+var svg2 = d3.select("#areaChart")
+.append("svg")
+.attr("height", height + margin.top + margin.bottom)
+.attr("width", width + margin.left + margin.right);
+
+// Vertical scale
+var areaY = d3.scale.linear()
+.domain([-20, 20])
+.range([height + margin.top, margin.top]);
+
+// The line of generator
+var areaLine = d3.svg.line()
+.x(function(d) {
+    return x(+d["Year"]);
+})
+.y(function(d) {
+    return areaY(+d["GDP Growth Rate(%)"]);
+});
+
+var areaXLabel = svg2.append("text")
+.attr("y", height/2 + margin.top + 40)
+.attr("x", width + margin.left)
+.attr("font-size", 16)
+.attr("text-anchor", "start")
+.text("Year");
+
+var areaYLabel = svg2.append("text")
+.attr("y", margin.top-15)
+.attr("x", 10)
+.attr("font-size", 16)
+.attr("text-anchor", "start")
+.text("GDP Growth Rate");
+
+// The clipping area above the X-axis is filled with green
+svg2.append("clipPath")
+.attr("id", "clip-up")
+.append("rect")
+.attr("x", margin.left)
+.attr("y", margin.top)
+.attr("width", width)
+.attr("height", height/2);
+
+// The clipping area above the X-axis is filled with red
+svg2.append("clipPath")
+.attr("id", "clip-down")
+.append("rect")
+.attr("x", margin.left)
+.attr("y", margin.top + height/2)
+.attr("width", width)
+.attr("height", height/2);
+
+// The horizontal axis
+svg2.append("g")
+.attr("class","axis")
+.attr("transform","translate(0," + (height/2 + margin.top) + ")")
+.call(xAxis);
+
+// The vertical axis
+var areaYAxis = d3.svg.axis()
+.scale(areaY)
+.orient("left");
+
+svg2.append("g")
+.attr("class","axis")
+.attr("transform","translate(" + margin.left + ",0)")
+.call(areaYAxis);
+
+// loading gdp data
+d3.csv("1929-present.csv", function(err, data) {
+    //console.log(data);
+
+    // Plot the path above the X-axis
+    svg2.append("path")
+    .attr("class", "line")
+    .attr("stroke", "#666")
+    .style("stroke-width", 1)
+    .attr("fill", "green")
+    .style("fill-opacity", 0.4)
+    .attr("d", function() {
+        return areaLine(data);
+    })
+    .attr("clip-path", "url(#clip-up)");
+
+    // Plot the path under the X-axis
+    svg2.append("path")
+    .attr("class", "line")
+    .attr("stroke", "#666")
+    .style("stroke-width", 1)
+    .attr("fill", "red")
+    .style("fill-opacity", 0.4)
+    .attr("d", function() {
+        return areaLine(data);
+    })
+    .attr("clip-path", "url(#clip-down)");
+
+    // Draw dots on the line
+    svg2.selectAll(".areaCircle")
+        .data(data).enter()
+        .append("circle")
+        .attr("class", "areaCircle")
+        .attr("cx", function(d) { return x(+d["Year"]); })
+        .attr("cy", function(d) { return areaY(+d["GDP Growth Rate(%)"]); })
+        .attr("r", function(d) {
+            if (d["Events Affecting GDP"]) {
+                return 2.5;
+            }
+            else return 0;
+        })
+        .style("fill", function(d) {
+            if (+d["GDP Growth Rate(%)"] > 0) { return "green"; }
+            else if (+d["GDP Growth Rate(%)"] < 0) { return "red"; }
+            else  return "grey";
+        })
+        // Mouse over display data
+        .on("mousemove", function(d) {
+            tooltip.style("top",(d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");
+        })
+        .on("mouseover", function(d) {
+            d3.select(this).attr("r", 5);
+            if (d["Events Affecting GDP"]) {
+                tooltip.text(d.Year + "GDP Growth Rate: " + d["GDP Growth Rate(%)"] + "%; " + "Events: " + d["Events Affecting GDP"] );
+                tooltip.style("visibility", "visible");
+            }            
+        })
+        .on("mouseout", function(d) {
+            d3.select(this).attr("r", 2);
+            tooltip.style("visibility", "hidden");
+        });
+})
+
+</script>
+</body>
+</html>
